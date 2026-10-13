@@ -1,55 +1,53 @@
-# VRV-Security
-VRV Security’s to Detect Suspicious Activity of different web addresses.
+# Web Log Analyzer
 
-# Log File Analyzer
+**Understand request activity and repeated login failures from a local log file.**
 
-## Description
+This Python utility summarizes web-server logs and writes the results to CSV. It is a small security-analysis exercise with an inspectable parsing and reporting pipeline.
 
-The **Log File Analyzer** is a Python script designed to process and analyze log files, extracting key insights such as request counts, popular endpoints, and detecting suspicious activities. This tool is tailored for cybersecurity-related tasks, leveraging file handling, string manipulation, and data analysis.
+## What it reports
 
----
+- Number of requests for each IPv4 address found at the start of a log line.
+- The most frequently requested endpoint.
+- Addresses whose matching failed-login events exceed a configurable threshold.
+- A combined CSV report in `log_analysis_results.csv`.
 
-## Features
+The current failed-login parser looks for the text `"Invalid credentials"` following a status code. It does not flag every HTTP 401 automatically. The configured threshold in the sample entry point is **3**, and an address is flagged when its count is **greater than** that threshold.
 
-1. **Count Requests per IP Address**  
-   - Parses the log file to extract IP addresses.  
-   - Counts the number of requests made by each IP.  
-   - Displays results sorted in descending order of request count.  
+## Run the included example
 
-2. **Identify the Most Frequently Accessed Endpoint**  
-   - Extracts endpoints (URLs or resource paths) from the log file.  
-   - Identifies the most frequently accessed endpoint.  
+Python 3 is sufficient; the script uses the standard library.
 
-3. **Detect Suspicious Activity**  
-   - Searches for failed login attempts (e.g., HTTP 401 errors or "Invalid credentials").  
-   - Flags IP addresses with failed login attempts exceeding a configurable threshold (default: 10).  
+```bash
+python log_analysis.py
+```
 
-4. **Output Results**  
-   - Displays results in the terminal for quick viewing.  
-   - Saves results to a CSV file named `log_analysis_results.csv`.  
+Run from the repository root so the script can find [`sample.log`](sample.log). It prints the analysis and writes or replaces `log_analysis_results.csv` in the current directory.
 
----
+## Use as a module
 
-## Example Outputs
+```python
+from log_analysis import LogAnalyzer
 
-### Terminal Output
-Requests per IP: 192.168.1.1 6 203.0.113.5 8 10.0.0.2 5 198.51.100.23 7
+analyzer = LogAnalyzer("sample.log", failed_login_threshold=3)
+results = analyzer.analyze()
+print(results["requests_by_ip"])
+analyzer.save_analysis_results(results, "my-report.csv")
+```
 
-Most Frequently Accessed Endpoint: /home (Accessed 5 times)
+## Architecture
 
-Suspicious Activity Detected: 203.0.113.5 8 192.168.1.100 12
+```mermaid
+flowchart LR
+  File[Local log file] --> Parser[Read lines and match patterns]
+  Parser --> Counts[Request and endpoint counts]
+  Parser --> Failures[Failed-login counts]
+  Failures --> Threshold[Threshold filter]
+  Counts --> Report[Console and CSV report]
+  Threshold --> Report
+```
 
-yaml
-Copy code
+[`LogAnalyzer`](log_analysis.py) separates reading, aggregation, detection, and export. To support a different log format, update the parsing patterns before interpreting its results.
 
-### CSV Output
-The results are saved in the following structure:
-- **Requests per IP**: IP Address, Request Count  
-- **Most Accessed Endpoint**: Endpoint, Access Count  
-- **Suspicious Activity**: IP Address, Failed Login Count  
+## Scope
 
----
-
-
-
-
+This is an offline analysis utility. A threshold match is a signal to investigate, not proof of an attack. The repository includes a sample log and a sample CSV; there is no background monitoring service or automated blocking.
